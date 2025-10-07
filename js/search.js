@@ -2,6 +2,101 @@ const getTimestamp = () => (typeof performance !== 'undefined' && typeof perform
     ? performance.now()
     : Date.now();
 
+const computeNetworkMetrics = (requestUrl, requestStart, headersReceived, requestEnd, response, responseText) => {
+    const fallbackLatency = Math.max(0, Math.round(headersReceived - requestStart));
+    const fallbackDownloadSeconds = Math.max((requestEnd - headersReceived) / 1000, 0);
+    const fallbackTotalSeconds = Math.max((requestEnd - requestStart) / 1000, 0);
+
+    let headerSize = 0;
+    if (response && typeof response.headers?.get === 'function') {
+        const lengthHeader = Number(response.headers.get('content-length'));
+        if (!Number.isNaN(lengthHeader) && lengthHeader > 0) {
+            headerSize = lengthHeader;
+        }
+    }
+
+    let encodedSize = 0;
+    if (responseText) {
+        try {
+            encodedSize = new TextEncoder().encode(responseText).length;
+        } catch (encoderError) {
+            encodedSize = responseText.length * 2;
+        }
+    }
+
+    let latencyMs = fallbackLatency;
+    let downloadSeconds = fallbackDownloadSeconds;
+    let totalSeconds = fallbackTotalSeconds;
+    let payloadSizeBytes = headerSize || encodedSize;
+
+    const hasPerformanceNow = typeof performance !== 'undefined' && typeof performance.now === 'function';
+    if (typeof performance !== 'undefined' && typeof performance.getEntriesByName === 'function') {
+        const entries = performance.getEntriesByName(requestUrl) || [];
+        if (entries.length) {
+            const threshold = hasPerformanceNow && typeof requestStart === 'number'
+                ? requestStart - 5
+                : null;
+            let candidate = null;
+            for (const entry of entries) {
+                if (threshold !== null && typeof entry.startTime === 'number' && entry.startTime + 0.01 < threshold) {
+                    continue;
+                }
+                if (!candidate || (entry.responseEnd || 0) > (candidate.responseEnd || 0)) {
+                    candidate = entry;
+                }
+            }
+            if (!candidate) {
+                candidate = entries[entries.length - 1];
+            }
+            if (candidate) {
+                const entryLatency = (candidate.responseStart || 0) - (candidate.startTime || 0);
+                if (Number.isFinite(entryLatency) && entryLatency >= 0) {
+                    latencyMs = Math.max(0, Math.round(entryLatency));
+                }
+                const entryDownload = (candidate.responseEnd || 0) - (candidate.responseStart || 0);
+                if (Number.isFinite(entryDownload) && entryDownload > 0) {
+                    downloadSeconds = Math.max(entryDownload / 1000, downloadSeconds);
+                }
+                const entryTotal = (candidate.responseEnd || 0) - (candidate.startTime || 0);
+                if (Number.isFinite(entryTotal) && entryTotal > 0) {
+                    totalSeconds = Math.max(entryTotal / 1000, totalSeconds);
+                }
+                const entrySize = candidate.transferSize && candidate.transferSize > 0
+                    ? candidate.transferSize
+                    : candidate.encodedBodySize && candidate.encodedBodySize > 0
+                        ? candidate.encodedBodySize
+                        : candidate.decodedBodySize && candidate.decodedBodySize > 0
+                            ? candidate.decodedBodySize
+                            : 0;
+                if (entrySize > 0) {
+                    payloadSizeBytes = entrySize;
+                }
+            }
+        }
+    }
+
+    if (!payloadSizeBytes) {
+        payloadSizeBytes = encodedSize || headerSize;
+    }
+
+    if (downloadSeconds <= 0) {
+        downloadSeconds = totalSeconds - (latencyMs / 1000);
+    }
+    if (downloadSeconds <= 0) {
+        downloadSeconds = totalSeconds;
+    }
+
+    const effectiveSeconds = Math.max(downloadSeconds, 0.01);
+    const speedKBps = payloadSizeBytes > 0
+        ? (payloadSizeBytes / 1024) / effectiveSeconds
+        : null;
+
+    return {
+        latencyMs,
+        speedKBps: Number.isFinite(speedKBps) && speedKBps > 0 ? speedKBps : null
+    };
+};
+
 async function searchByAPIAndKeyWord(apiId, query) {
     try {
         let apiUrl, apiName, apiBaseUrl;
@@ -27,8 +122,9 @@ async function searchByAPIAndKeyWord(apiId, query) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 8000);
         
+        const requestUrl = PROXY_URL + encodeURIComponent(apiUrl);
         const requestStart = getTimestamp();
-        const response = await fetch(PROXY_URL + encodeURIComponent(apiUrl), {
+        const response = await fetch(requestUrl, {
             headers: API_CONFIG.search.headers,
             signal: controller.signal
         });
@@ -51,21 +147,14 @@ async function searchByAPIAndKeyWord(apiId, query) {
             return [];
         }
 
-        const latencyMs = Math.max(0, Math.round(headersReceived - requestStart));
-        const downloadSeconds = Math.max((requestEnd - headersReceived) / 1000, 0);
-        const totalSeconds = Math.max((requestEnd - requestStart) / 1000, 0);
-        const effectiveSeconds = downloadSeconds > 0 ? downloadSeconds : totalSeconds;
-        let payloadSizeBytes = 0;
-        try {
-            payloadSizeBytes = new TextEncoder().encode(responseText).length;
-        } catch (encoderError) {
-            // TextEncoder 在极少数环境中不可用，回退到字符串长度估算
-            payloadSizeBytes = responseText.length * 2;
-        }
-        const rawSpeed = effectiveSeconds > 0
-            ? (payloadSizeBytes / 1024) / effectiveSeconds
-            : null;
-        const speedKBps = Number.isFinite(rawSpeed) ? rawSpeed : null;
+        const { latencyMs, speedKBps } = computeNetworkMetrics(
+            requestUrl,
+            requestStart,
+            headersReceived,
+            requestEnd,
+            response,
+            responseText
+        );
 
         if (!data || !data.list || !Array.isArray(data.list) || data.list.length === 0) {
             return [];
@@ -103,7 +192,8 @@ async function searchByAPIAndKeyWord(apiId, query) {
                         const pageTimeoutId = setTimeout(() => pageController.abort(), 8000);
                         
                         const pageStart = getTimestamp();
-                        const pageResponse = await fetch(PROXY_URL + encodeURIComponent(pageUrl), {
+                        const pageRequestUrl = PROXY_URL + encodeURIComponent(pageUrl);
+                        const pageResponse = await fetch(pageRequestUrl, {
                             headers: API_CONFIG.search.headers,
                             signal: pageController.signal
                         });
@@ -124,20 +214,14 @@ async function searchByAPIAndKeyWord(apiId, query) {
                             return [];
                         }
 
-                        const pageLatencyMs = Math.max(0, Math.round(pageHeadersReceived - pageStart));
-                        const pageDownloadSeconds = Math.max((pageEnd - pageHeadersReceived) / 1000, 0);
-                        const pageTotalSeconds = Math.max((pageEnd - pageStart) / 1000, 0);
-                        const pageEffectiveSeconds = pageDownloadSeconds > 0 ? pageDownloadSeconds : pageTotalSeconds;
-                        let pageSizeBytes = 0;
-                        try {
-                            pageSizeBytes = new TextEncoder().encode(pageText).length;
-                        } catch (encoderError) {
-                            pageSizeBytes = pageText.length * 2;
-                        }
-                        const pageRawSpeed = pageEffectiveSeconds > 0
-                            ? (pageSizeBytes / 1024) / pageEffectiveSeconds
-                            : null;
-                        const pageSpeedKBps = Number.isFinite(pageRawSpeed) ? pageRawSpeed : null;
+                        const { latencyMs: pageLatencyMs, speedKBps: pageSpeedKBps } = computeNetworkMetrics(
+                            pageRequestUrl,
+                            pageStart,
+                            pageHeadersReceived,
+                            pageEnd,
+                            pageResponse,
+                            pageText
+                        );
 
                         if (!pageData || !pageData.list || !Array.isArray(pageData.list)) return [];
 
