@@ -125,6 +125,95 @@ button, .card-hover {
     left: 100%;
 }
 
+.source-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.75rem;
+    border-radius: 9999px;
+    background: linear-gradient(135deg, rgba(0, 204, 255, 0.18), rgba(0, 204, 255, 0.05));
+    color: var(--primary-light);
+    border: 1px solid rgba(0, 204, 255, 0.35);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    letter-spacing: 0.01em;
+    backdrop-filter: blur(6px);
+}
+
+.source-badge__dot {
+    width: 0.375rem;
+    height: 0.375rem;
+    border-radius: 9999px;
+    background: currentColor;
+    opacity: 0.85;
+}
+
+.tag-pill {
+    font-size: 0.72rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 9999px;
+    background: rgba(148, 163, 184, 0.14);
+    color: rgba(226, 232, 240, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    letter-spacing: 0.02em;
+    backdrop-filter: blur(4px);
+}
+
+.metric-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.7rem;
+    font-size: 0.72rem;
+    border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(15, 22, 34, 0.6);
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+    backdrop-filter: blur(8px);
+    white-space: nowrap;
+}
+
+.metric-badge__dot {
+    width: 0.35rem;
+    height: 0.35rem;
+    border-radius: 9999px;
+    background: currentColor;
+    opacity: 0.75;
+}
+
+.metric-badge__label {
+    opacity: 0.85;
+}
+
+.metric-badge__value {
+    font-weight: 600;
+}
+
+.metric-badge--good {
+    background: rgba(16, 185, 129, 0.18);
+    border-color: rgba(16, 185, 129, 0.45);
+    color: #6ee7b7;
+}
+
+.metric-badge--warn {
+    background: rgba(234, 179, 8, 0.18);
+    border-color: rgba(234, 179, 8, 0.45);
+    color: #facc15;
+}
+
+.metric-badge--slow {
+    background: rgba(248, 113, 113, 0.2);
+    border-color: rgba(248, 113, 113, 0.5);
+    color: #fda4af;
+}
+
+.metric-badge--unknown {
+    background: rgba(148, 163, 184, 0.16);
+    border-color: rgba(148, 163, 184, 0.4);
+    color: #cbd5f5;
+}
+
 .gradient-text {
     background: linear-gradient(to right, var(--primary-color), var(--accent-color));
     -webkit-background-clip: text;
@@ -894,25 +983,19 @@ body {
     }
 }
 
-/* 优化卡片内元素间距 */
-.card-hover .p-2 {
-    padding: 0.75rem; /* 增加内边距 */
+/* 优化卡片内元素间距与排版 */
+.card-hover .p-3 {
+    padding: 0.85rem;
 }
 
 /* 增加卡片内字体大小 */
 .card-hover h3 {
     font-size: 0.95rem; /* 增加标题字体大小 */
     line-height: 1.3rem;
-    margin-bottom: 0.5rem;
 }
 
 .card-hover p {
     font-size: 0.8rem; /* 增加描述字体大小 */
-}
-
-/* 优化卡片内元素间距 */
-.card-hover .p-2 {
-    padding: 0.5rem;
 }
 
 /* 确保Toast显示在顶层并有适当的转换效果 */

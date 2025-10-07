@@ -1,3 +1,7 @@
+const getTimestamp = () => (typeof performance !== 'undefined' && typeof performance.now === 'function')
+    ? performance.now()
+    : Date.now();
+
 async function searchByAPIAndKeyWord(apiId, query) {
     try {
         let apiUrl, apiName, apiBaseUrl;
@@ -23,7 +27,7 @@ async function searchByAPIAndKeyWord(apiId, query) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 8000);
         
-        const requestStart = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        const requestStart = getTimestamp();
         const response = await fetch(PROXY_URL + encodeURIComponent(apiUrl), {
             headers: API_CONFIG.search.headers,
             signal: controller.signal
@@ -35,8 +39,9 @@ async function searchByAPIAndKeyWord(apiId, query) {
             return [];
         }
 
-        const responseEnd = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        const headersReceived = getTimestamp();
         const responseText = await response.text();
+        const requestEnd = getTimestamp();
 
         let data;
         try {
@@ -46,8 +51,10 @@ async function searchByAPIAndKeyWord(apiId, query) {
             return [];
         }
 
-        const durationMs = responseEnd - requestStart;
-        const durationSeconds = durationMs > 0 ? durationMs / 1000 : 0;
+        const latencyMs = Math.max(0, Math.round(headersReceived - requestStart));
+        const downloadSeconds = Math.max((requestEnd - headersReceived) / 1000, 0);
+        const totalSeconds = Math.max((requestEnd - requestStart) / 1000, 0);
+        const effectiveSeconds = downloadSeconds > 0 ? downloadSeconds : totalSeconds;
         let payloadSizeBytes = 0;
         try {
             payloadSizeBytes = new TextEncoder().encode(responseText).length;
@@ -55,10 +62,10 @@ async function searchByAPIAndKeyWord(apiId, query) {
             // TextEncoder 在极少数环境中不可用，回退到字符串长度估算
             payloadSizeBytes = responseText.length * 2;
         }
-        const speedKbps = durationSeconds > 0
-            ? Math.round((payloadSizeBytes / 1024) / durationSeconds)
+        const rawSpeed = effectiveSeconds > 0
+            ? (payloadSizeBytes / 1024) / effectiveSeconds
             : null;
-        const latencyMs = Math.round(durationMs);
+        const speedKBps = Number.isFinite(rawSpeed) ? rawSpeed : null;
 
         if (!data || !data.list || !Array.isArray(data.list) || data.list.length === 0) {
             return [];
@@ -71,7 +78,7 @@ async function searchByAPIAndKeyWord(apiId, query) {
             source_code: apiId,
             api_url: apiId.startsWith('custom_') ? getCustomApiInfo(apiId.replace('custom_', ''))?.url : undefined,
             latencyMs,
-            speedKbps
+            speedKBps
         }));
         
         // 获取总页数
@@ -95,7 +102,7 @@ async function searchByAPIAndKeyWord(apiId, query) {
                         const pageController = new AbortController();
                         const pageTimeoutId = setTimeout(() => pageController.abort(), 8000);
                         
-                        const pageStart = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+                        const pageStart = getTimestamp();
                         const pageResponse = await fetch(PROXY_URL + encodeURIComponent(pageUrl), {
                             headers: API_CONFIG.search.headers,
                             signal: pageController.signal
@@ -105,8 +112,9 @@ async function searchByAPIAndKeyWord(apiId, query) {
 
                         if (!pageResponse.ok) return [];
 
-                        const pageEnd = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+                        const pageHeadersReceived = getTimestamp();
                         const pageText = await pageResponse.text();
+                        const pageEnd = getTimestamp();
 
                         let pageData;
                         try {
@@ -116,18 +124,20 @@ async function searchByAPIAndKeyWord(apiId, query) {
                             return [];
                         }
 
-                        const pageDurationMs = pageEnd - pageStart;
-                        const pageDurationSeconds = pageDurationMs > 0 ? pageDurationMs / 1000 : 0;
+                        const pageLatencyMs = Math.max(0, Math.round(pageHeadersReceived - pageStart));
+                        const pageDownloadSeconds = Math.max((pageEnd - pageHeadersReceived) / 1000, 0);
+                        const pageTotalSeconds = Math.max((pageEnd - pageStart) / 1000, 0);
+                        const pageEffectiveSeconds = pageDownloadSeconds > 0 ? pageDownloadSeconds : pageTotalSeconds;
                         let pageSizeBytes = 0;
                         try {
                             pageSizeBytes = new TextEncoder().encode(pageText).length;
                         } catch (encoderError) {
                             pageSizeBytes = pageText.length * 2;
                         }
-                        const pageSpeedKbps = pageDurationSeconds > 0
-                            ? Math.round((pageSizeBytes / 1024) / pageDurationSeconds)
+                        const pageRawSpeed = pageEffectiveSeconds > 0
+                            ? (pageSizeBytes / 1024) / pageEffectiveSeconds
                             : null;
-                        const pageLatencyMs = Math.round(pageDurationMs);
+                        const pageSpeedKBps = Number.isFinite(pageRawSpeed) ? pageRawSpeed : null;
 
                         if (!pageData || !pageData.list || !Array.isArray(pageData.list)) return [];
 
@@ -138,7 +148,7 @@ async function searchByAPIAndKeyWord(apiId, query) {
                             source_code: apiId,
                             api_url: apiId.startsWith('custom_') ? getCustomApiInfo(apiId.replace('custom_', ''))?.url : undefined,
                             latencyMs: pageLatencyMs,
-                            speedKbps: pageSpeedKbps
+                            speedKBps: pageSpeedKBps
                         }));
                     } catch (error) {
                         console.warn(`API ${apiId} 第${page}页搜索失败:`, error);

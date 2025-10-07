@@ -730,6 +730,33 @@ async function search() {
             });
         }
 
+        // 指标和显示辅助方法
+        const formatSpeed = (speed) => {
+            if (!Number.isFinite(speed) || speed <= 0) return '未知';
+            if (speed >= 1024) {
+                const mb = speed / 1024;
+                return `${mb >= 10 ? Math.round(mb) : mb.toFixed(1)} MB/s`;
+            }
+            if (speed >= 100) {
+                return `${Math.round(speed)} KB/s`;
+            }
+            return `${speed.toFixed(1)} KB/s`;
+        };
+
+        const getLatencyClass = (latency) => {
+            if (!Number.isFinite(latency)) return 'metric-badge--unknown';
+            if (latency <= 200) return 'metric-badge--good';
+            if (latency <= 500) return 'metric-badge--warn';
+            return 'metric-badge--slow';
+        };
+
+        const getSpeedClass = (speed) => {
+            if (!Number.isFinite(speed) || speed <= 0) return 'metric-badge--unknown';
+            if (speed >= 1024) return 'metric-badge--good';
+            if (speed >= 256) return 'metric-badge--warn';
+            return 'metric-badge--slow';
+        };
+
         // 添加XSS保护，使用textContent和属性转义
         const safeResults = allResults.map(item => {
             const safeId = item.vod_id ? item.vod_id.toString().replace(/[^\w-]/g, '') : '';
@@ -738,10 +765,23 @@ async function search() {
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;');
             const sourceInfo = item.source_name ?
-                `<span class="bg-[#222] text-xs px-1.5 py-0.5 rounded-full">${item.source_name}</span>` : '';
+                `<span class="source-badge">
+                    <span class="source-badge__dot"></span>
+                    <span>${item.source_name}</span>
+                </span>` : '';
             const latencyDisplay = Number.isFinite(item.latencyMs) ? `${item.latencyMs}ms` : '未知';
-            const speedDisplay = Number.isFinite(item.speedKbps) ? `${item.speedKbps} KB/s` : '未知';
+            const speedDisplay = formatSpeed(item.speedKBps);
             const sourceCode = item.source_code || '';
+            const latencyBadge = `<span class="metric-badge ${getLatencyClass(item.latencyMs)}">
+                    <span class="metric-badge__dot"></span>
+                    <span class="metric-badge__label">延迟</span>
+                    <span class="metric-badge__value">${latencyDisplay}</span>
+                </span>`;
+            const speedBadge = `<span class="metric-badge ${getSpeedClass(item.speedKBps)}">
+                    <span class="metric-badge__dot"></span>
+                    <span class="metric-badge__label">网速</span>
+                    <span class="metric-badge__value">${speedDisplay}</span>
+                </span>`;
 
             // 添加API URL属性，用于详情获取
             const apiUrlAttr = item.api_url ?
@@ -751,42 +791,42 @@ async function search() {
             const hasCover = item.vod_pic && item.vod_pic.startsWith('http');
 
             return `
-                <div class="card-hover bg-[#111] rounded-lg overflow-hidden cursor-pointer transition-all hover:scale-[1.02] h-full shadow-sm hover:shadow-md" 
+                <div class="card-hover group relative overflow-hidden cursor-pointer h-full"
                      onclick="showDetails('${safeId}','${safeName}','${sourceCode}')" ${apiUrlAttr}>
                     <div class="flex h-full">
                         ${hasCover ? `
                         <div class="relative flex-shrink-0 search-card-img-container">
-                            <img src="${item.vod_pic}" alt="${safeName}" 
-                                 class="h-full w-full object-cover transition-transform hover:scale-110" 
+                            <img src="${item.vod_pic}" alt="${safeName}"
+                                 class="h-full w-full object-cover transition-transform hover:scale-110"
                                  onerror="this.onerror=null; this.src='https://via.placeholder.com/300x450?text=无封面'; this.classList.add('object-contain');" 
                                  loading="lazy">
                             <div class="absolute inset-0 bg-gradient-to-r from-black/30 to-transparent"></div>
                         </div>` : ''}
                         
-                        <div class="p-2 flex flex-col flex-grow">
-                            <div class="flex-grow">
-                                <h3 class="font-semibold mb-2 break-words line-clamp-2 ${hasCover ? '' : 'text-center'}" title="${safeName}">${safeName}</h3>
-                                
-                                <div class="flex flex-wrap ${hasCover ? '' : 'justify-center'} gap-1 mb-2">
+                        <div class="p-3 flex flex-col flex-grow gap-2">
+                            <div class="flex-grow flex flex-col gap-2">
+                                <h3 class="font-semibold text-[0.95rem] leading-tight break-words line-clamp-2 ${hasCover ? '' : 'text-center'}" title="${safeName}">${safeName}</h3>
+
+                                <div class="flex flex-wrap ${hasCover ? '' : 'justify-center'} gap-1.5">
                                     ${(item.type_name || '').toString().replace(/</g, '&lt;') ?
-                    `<span class="text-xs py-0.5 px-1.5 rounded bg-opacity-20 bg-blue-500 text-blue-300">
+                    `<span class="tag-pill">
                                           ${(item.type_name || '').toString().replace(/</g, '&lt;')}
                                       </span>` : ''}
                                     ${(item.vod_year || '') ?
-                    `<span class="text-xs py-0.5 px-1.5 rounded bg-opacity-20 bg-purple-500 text-purple-300">
+                    `<span class="tag-pill">
                                           ${item.vod_year}
                                       </span>` : ''}
                                 </div>
-                                <p class="text-gray-400 line-clamp-2 overflow-hidden ${hasCover ? '' : 'text-center'} mb-2">
+                                <p class="text-[0.8rem] text-gray-400/90 line-clamp-2 overflow-hidden ${hasCover ? '' : 'text-center'}">
                                     ${(item.vod_remarks || '暂无介绍').toString().replace(/</g, '&lt;')}
                                 </p>
                             </div>
-                            
-                            <div class="flex justify-between items-center mt-1 pt-1 border-t border-gray-800">
+
+                            <div class="flex items-center justify-between pt-2 border-t border-white/5">
                                 ${sourceInfo ? `<div>${sourceInfo}</div>` : '<div></div>'}
-                                <div class="text-xs text-gray-500 text-right leading-tight">
-                                    <div>延迟: ${latencyDisplay}</div>
-                                    <div>网速: ${speedDisplay}</div>
+                                <div class="flex items-center gap-1.5 flex-wrap justify-end">
+                                    ${latencyBadge}
+                                    ${speedBadge}
                                 </div>
                                 <!-- 接口名称过长会被挤变形
                                 <div>
