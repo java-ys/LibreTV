@@ -739,6 +739,8 @@ async function search() {
                 .replace(/"/g, '&quot;');
             const sourceInfo = item.source_name ?
                 `<span class="bg-[#222] text-xs px-1.5 py-0.5 rounded-full">${item.source_name}</span>` : '';
+            const latencyDisplay = Number.isFinite(item.latencyMs) ? `${item.latencyMs}ms` : '未知';
+            const speedDisplay = Number.isFinite(item.speedKbps) ? `${item.speedKbps} KB/s` : '未知';
             const sourceCode = item.source_code || '';
 
             // 添加API URL属性，用于详情获取
@@ -782,6 +784,10 @@ async function search() {
                             
                             <div class="flex justify-between items-center mt-1 pt-1 border-t border-gray-800">
                                 ${sourceInfo ? `<div>${sourceInfo}</div>` : '<div></div>'}
+                                <div class="text-xs text-gray-500 text-right leading-tight">
+                                    <div>延迟: ${latencyDisplay}</div>
+                                    <div>网速: ${speedDisplay}</div>
+                                </div>
                                 <!-- 接口名称过长会被挤变形
                                 <div>
                                     <span class="text-gray-500 flex items-center hover:text-blue-400 transition-colors">
