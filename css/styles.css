@@ -77,31 +77,159 @@ button, .card-hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
     position: relative;
     overflow: hidden;
-    border-radius: 6px;
-    display: flex;
-    flex-direction: column;
+    border-radius: 12px;
+    display: block;
+}
+
+.result-card {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 1rem;
+    min-height: 184px;
+    background: radial-gradient(circle at top left, rgba(0, 204, 255, 0.12), transparent 55%),
+        linear-gradient(135deg, rgba(18, 27, 41, 0.95), rgba(11, 18, 30, 0.92));
+}
+
+.result-card__media {
+    position: relative;
+    overflow: hidden;
+    background: #0b1018;
+}
+
+.result-card__media::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(12, 19, 31, 0.65), transparent 60%);
+    pointer-events: none;
+}
+
+.result-card__media img {
+    width: 100%;
     height: 100%;
+    object-fit: cover;
+    transition: transform 0.4s ease;
 }
 
-/* 确保卡片内容区域高度一致性 */
-.card-hover .flex-grow {
-    min-height: unset; /* 移除最小高度限制，让内容自然流动 */
+.result-card:hover .result-card__media img {
+    transform: scale(1.06);
+}
+
+.result-card__body {
+    padding: 1rem 1.1rem 1.1rem;
     display: flex;
     flex-direction: column;
+    gap: 0.9rem;
 }
 
-/* 针对不同长度的标题优化显示 */
-.card-hover h3 {
-    min-height: unset;
-    max-height: unset;
+.result-card__header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.result-card__title {
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--text-color);
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    overflow: hidden;
-    text-overflow: ellipsis;
     -webkit-line-clamp: 2;
-    line-height: 1.2rem;
-    word-break: break-word; /* 允许在任何字符间断行 */
-    hyphens: auto; /* 允许断词 */
+    overflow: hidden;
+    word-break: break-word;
+    hyphens: auto;
+}
+
+.result-card__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+}
+
+.result-card__description {
+    font-size: 0.82rem;
+    color: rgba(226, 232, 240, 0.72);
+    line-height: 1.45;
+    max-height: 2.9em;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.result-card__footer {
+    margin-top: auto;
+    padding-top: 0.8rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.result-card__source {
+    display: flex;
+    align-items: center;
+}
+
+.result-card__metrics {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.result-card--no-cover {
+    grid-template-columns: 1fr;
+    text-align: center;
+}
+
+.result-card--no-cover .result-card__body {
+    align-items: center;
+    padding: 1.25rem 1.2rem 1.3rem;
+}
+
+.result-card--no-cover .result-card__description {
+    text-align: center;
+}
+
+.result-card--no-cover .result-card__footer {
+    justify-content: center;
+}
+
+.result-card--no-cover .result-card__metrics {
+    justify-content: center;
+}
+
+@media (max-width: 1024px) {
+    .result-card {
+        grid-template-columns: 110px 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .result-card {
+        grid-template-columns: 1fr;
+    }
+
+    .result-card__media {
+        height: 180px;
+    }
+
+    .result-card__body {
+        padding: 1rem 1rem 1.2rem;
+    }
+
+    .result-card__footer {
+        justify-content: center;
+    }
+
+    .result-card__metrics {
+        justify-content: center;
+    }
 }
 
 .card-hover::before {
@@ -123,6 +251,95 @@ button, .card-hover {
 
 .card-hover:hover::before {
     left: 100%;
+}
+
+.source-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.75rem;
+    border-radius: 9999px;
+    background: linear-gradient(135deg, rgba(0, 204, 255, 0.18), rgba(0, 204, 255, 0.05));
+    color: var(--primary-light);
+    border: 1px solid rgba(0, 204, 255, 0.35);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    letter-spacing: 0.01em;
+    backdrop-filter: blur(6px);
+}
+
+.source-badge__dot {
+    width: 0.375rem;
+    height: 0.375rem;
+    border-radius: 9999px;
+    background: currentColor;
+    opacity: 0.85;
+}
+
+.tag-pill {
+    font-size: 0.72rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 9999px;
+    background: rgba(148, 163, 184, 0.14);
+    color: rgba(226, 232, 240, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    letter-spacing: 0.02em;
+    backdrop-filter: blur(4px);
+}
+
+.metric-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.7rem;
+    font-size: 0.72rem;
+    border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(15, 22, 34, 0.6);
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+    backdrop-filter: blur(8px);
+    white-space: nowrap;
+}
+
+.metric-badge__dot {
+    width: 0.35rem;
+    height: 0.35rem;
+    border-radius: 9999px;
+    background: currentColor;
+    opacity: 0.75;
+}
+
+.metric-badge__label {
+    opacity: 0.85;
+}
+
+.metric-badge__value {
+    font-weight: 600;
+}
+
+.metric-badge--good {
+    background: rgba(16, 185, 129, 0.18);
+    border-color: rgba(16, 185, 129, 0.45);
+    color: #6ee7b7;
+}
+
+.metric-badge--warn {
+    background: rgba(234, 179, 8, 0.18);
+    border-color: rgba(234, 179, 8, 0.45);
+    color: #facc15;
+}
+
+.metric-badge--slow {
+    background: rgba(248, 113, 113, 0.2);
+    border-color: rgba(248, 113, 113, 0.5);
+    color: #fda4af;
+}
+
+.metric-badge--unknown {
+    background: rgba(148, 163, 184, 0.16);
+    border-color: rgba(148, 163, 184, 0.4);
+    color: #cbd5f5;
 }
 
 .gradient-text {
@@ -850,69 +1067,6 @@ body {
     .custom-title-scroll {
         font-size: 1rem;
     }
-}
-
-/* 搜索结果卡片优化：横向布局 */
-.search-card-img-container {
-    width: 100px;  /* 增加宽度，从80px到100px */
-    height: 150px; /* 增加高度，从120px到150px */
-    overflow: hidden;
-    background-color: #191919;
-}
-
-/* 确保图片不会被拉伸，并且能够正确显示 */
-.search-card-img-container img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-/* 针对搜索结果卡片修改网格布局以适应横向卡片 */
-@media (max-width: 640px) {
-    #results {
-        grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
-    }
-}
-
-/* 响应式调整：在小屏幕上依然保持较好的视觉效果 */
-@media (min-width: 641px) and (max-width: 768px) {
-    #results {
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    }
-}
-
-/* 调整网格布局，减少每行卡片数量以适应更大尺寸的卡片 */
-@media (min-width: 769px) and (max-width: 1024px) {
-    #results {
-        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-    }
-}
-
-@media (min-width: 1025px) {
-    #results {
-        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-    }
-}
-
-/* 优化卡片内元素间距 */
-.card-hover .p-2 {
-    padding: 0.75rem; /* 增加内边距 */
-}
-
-/* 增加卡片内字体大小 */
-.card-hover h3 {
-    font-size: 0.95rem; /* 增加标题字体大小 */
-    line-height: 1.3rem;
-    margin-bottom: 0.5rem;
-}
-
-.card-hover p {
-    font-size: 0.8rem; /* 增加描述字体大小 */
-}
-
-/* 优化卡片内元素间距 */
-.card-hover .p-2 {
-    padding: 0.5rem;
 }
 
 /* 确保Toast显示在顶层并有适当的转换效果 */

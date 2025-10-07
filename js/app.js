@@ -730,6 +730,38 @@ async function search() {
             });
         }
 
+        // 指标和显示辅助方法
+        const formatSpeed = (speed) => {
+            if (!Number.isFinite(speed) || speed <= 0) return '未知';
+            if (speed >= 2048) {
+                return `${Math.round(speed / 1024)} MB/s`;
+            }
+            if (speed >= 1024) {
+                return `${(speed / 1024).toFixed(1)} MB/s`;
+            }
+            if (speed >= 10) {
+                return `${Math.round(speed)} KB/s`;
+            }
+            if (speed >= 1) {
+                return `${speed.toFixed(1)} KB/s`;
+            }
+            return `${Math.max(speed * 1024, 1).toFixed(0)} B/s`;
+        };
+
+        const getLatencyClass = (latency) => {
+            if (!Number.isFinite(latency)) return 'metric-badge--unknown';
+            if (latency <= 200) return 'metric-badge--good';
+            if (latency <= 500) return 'metric-badge--warn';
+            return 'metric-badge--slow';
+        };
+
+        const getSpeedClass = (speed) => {
+            if (!Number.isFinite(speed) || speed <= 0) return 'metric-badge--unknown';
+            if (speed >= 1024) return 'metric-badge--good';
+            if (speed >= 256) return 'metric-badge--warn';
+            return 'metric-badge--slow';
+        };
+
         // 添加XSS保护，使用textContent和属性转义
         const safeResults = allResults.map(item => {
             const safeId = item.vod_id ? item.vod_id.toString().replace(/[^\w-]/g, '') : '';
@@ -738,64 +770,73 @@ async function search() {
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;');
             const sourceInfo = item.source_name ?
-                `<span class="bg-[#222] text-xs px-1.5 py-0.5 rounded-full">${item.source_name}</span>` : '';
+                `<span class="source-badge">
+                    <span class="source-badge__dot"></span>
+                    <span>${item.source_name}</span>
+                </span>` : '';
+            const latencyDisplay = Number.isFinite(item.latencyMs) ? `${item.latencyMs}ms` : '未知';
+            const speedDisplay = formatSpeed(item.speedKBps);
             const sourceCode = item.source_code || '';
+            const latencyBadge = `<span class="metric-badge ${getLatencyClass(item.latencyMs)}">
+                    <span class="metric-badge__dot"></span>
+                    <span class="metric-badge__label">延迟</span>
+                    <span class="metric-badge__value">${latencyDisplay}</span>
+                </span>`;
+            const speedBadge = `<span class="metric-badge ${getSpeedClass(item.speedKBps)}">
+                    <span class="metric-badge__dot"></span>
+                    <span class="metric-badge__label">网速</span>
+                    <span class="metric-badge__value">${speedDisplay}</span>
+                </span>`;
 
-            // 添加API URL属性，用于详情获取
             const apiUrlAttr = item.api_url ?
                 `data-api-url="${item.api_url.replace(/"/g, '&quot;')}"` : '';
 
-            // 修改为水平卡片布局，图片在左侧，文本在右侧，并优化样式
             const hasCover = item.vod_pic && item.vod_pic.startsWith('http');
+            const cardClasses = ['card-hover', 'group', 'result-card', 'cursor-pointer'];
+            if (hasCover) {
+                cardClasses.push('relative');
+            } else {
+                cardClasses.push('result-card--no-cover');
+            }
+
+            const safeType = (item.type_name || '').toString().replace(/</g, '&lt;');
+            const tags = [];
+            if (safeType) {
+                tags.push(`<span class="tag-pill">${safeType}</span>`);
+            }
+            if (item.vod_year) {
+                tags.push(`<span class="tag-pill">${item.vod_year}</span>`);
+            }
+            const tagsMarkup = tags.length ? `<div class="result-card__tags">${tags.join('')}</div>` : '';
+
+            const remarks = (item.vod_remarks || '暂无介绍').toString().replace(/</g, '&lt;');
 
             return `
-                <div class="card-hover bg-[#111] rounded-lg overflow-hidden cursor-pointer transition-all hover:scale-[1.02] h-full shadow-sm hover:shadow-md" 
-                     onclick="showDetails('${safeId}','${safeName}','${sourceCode}')" ${apiUrlAttr}>
-                    <div class="flex h-full">
-                        ${hasCover ? `
-                        <div class="relative flex-shrink-0 search-card-img-container">
-                            <img src="${item.vod_pic}" alt="${safeName}" 
-                                 class="h-full w-full object-cover transition-transform hover:scale-110" 
-                                 onerror="this.onerror=null; this.src='https://via.placeholder.com/300x450?text=无封面'; this.classList.add('object-contain');" 
-                                 loading="lazy">
-                            <div class="absolute inset-0 bg-gradient-to-r from-black/30 to-transparent"></div>
-                        </div>` : ''}
-                        
-                        <div class="p-2 flex flex-col flex-grow">
-                            <div class="flex-grow">
-                                <h3 class="font-semibold mb-2 break-words line-clamp-2 ${hasCover ? '' : 'text-center'}" title="${safeName}">${safeName}</h3>
-                                
-                                <div class="flex flex-wrap ${hasCover ? '' : 'justify-center'} gap-1 mb-2">
-                                    ${(item.type_name || '').toString().replace(/</g, '&lt;') ?
-                    `<span class="text-xs py-0.5 px-1.5 rounded bg-opacity-20 bg-blue-500 text-blue-300">
-                                          ${(item.type_name || '').toString().replace(/</g, '&lt;')}
-                                      </span>` : ''}
-                                    ${(item.vod_year || '') ?
-                    `<span class="text-xs py-0.5 px-1.5 rounded bg-opacity-20 bg-purple-500 text-purple-300">
-                                          ${item.vod_year}
-                                      </span>` : ''}
-                                </div>
-                                <p class="text-gray-400 line-clamp-2 overflow-hidden ${hasCover ? '' : 'text-center'} mb-2">
-                                    ${(item.vod_remarks || '暂无介绍').toString().replace(/</g, '&lt;')}
-                                </p>
+                <article class="${cardClasses.join(' ')}" role="button" tabindex="0"
+                         onclick="showDetails('${safeId}','${safeName}','${sourceCode}')"
+                         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showDetails('${safeId}','${safeName}','${sourceCode}');}" ${apiUrlAttr}>
+                    ${hasCover ? `
+                    <div class="result-card__media">
+                        <img src="${item.vod_pic}" alt="${safeName}"
+                             onerror="this.onerror=null; this.src='https://via.placeholder.com/300x450?text=无封面'; this.classList.add('object-contain');"
+                             loading="lazy">
+                    </div>` : ''}
+
+                    <div class="result-card__body">
+                        <header class="result-card__header">
+                            <h3 class="result-card__title" title="${safeName}">${safeName}</h3>
+                            ${tagsMarkup}
+                        </header>
+                        <p class="result-card__description">${remarks}</p>
+                        <footer class="result-card__footer">
+                            ${sourceInfo ? `<div class="result-card__source">${sourceInfo}</div>` : '<span></span>'}
+                            <div class="result-card__metrics">
+                                ${latencyBadge}
+                                ${speedBadge}
                             </div>
-                            
-                            <div class="flex justify-between items-center mt-1 pt-1 border-t border-gray-800">
-                                ${sourceInfo ? `<div>${sourceInfo}</div>` : '<div></div>'}
-                                <!-- 接口名称过长会被挤变形
-                                <div>
-                                    <span class="text-gray-500 flex items-center hover:text-blue-400 transition-colors">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                                        </svg>
-                                        播放
-                                    </span>
-                                </div>
-                                -->
-                            </div>
-                        </div>
+                        </footer>
                     </div>
-                </div>
+                </article>
             `;
         }).join('');
 
